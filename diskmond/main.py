@@ -13,9 +13,9 @@ time_re = re.compile(r'^((?P<hours>[\.\d]+?)h\+)?((?P<minutes>[\.\d]+?)m\+)?((?P
 
 
 @click.command()
-@click.option('--interval', default=1)
+@click.option('--interval', default='300')
 def cli(interval):
-    interval = os.getenv('DISKMON_INTERVAL', interval)
+    interval = int(os.getenv('DISKMON_INTERVAL', interval))
 
     device_list = DeviceList()
     while True:
