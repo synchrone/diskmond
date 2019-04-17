@@ -6,16 +6,35 @@ import logging
 
 import click
 from pySMART import Device, Attribute, DeviceList
-from statsd.defaults.env import statsd
 
 logger = logging.getLogger(__name__)
 time_re = re.compile(r'^((?P<hours>[\.\d]+?)h\+)?((?P<minutes>[\.\d]+?)m\+)?((?P<seconds>[\.\d]+?)s)?$')
 
 
+def get_statsd(use_datadog):
+    has_datadog = True
+    if use_datadog:
+        try:
+            from datadog import statsd
+        except ImportError:
+            has_datadog = False
+
+    if not use_datadog or not has_datadog:
+        from statsd.defaults.env import statsd
+
+    try:
+        # noinspection PyUnboundLocalVariable
+        return statsd
+    except NameError:
+        raise ModuleNotFoundError('no supported backend found')
+
+
 @click.command()
 @click.option('--interval', default='300')
-def cli(interval):
+@click.option('--use-datadog/--no-use-datadog', default=True)
+def cli(interval, use_datadog):
     interval = int(os.getenv('DISKMON_INTERVAL', interval))
+    statsd = get_statsd(use_datadog)
 
     device_list = DeviceList()
     while True:
@@ -26,20 +45,24 @@ def cli(interval):
             for a in filter(None, dev.attributes):
                 assert isinstance(a, Attribute)
 
-                key = f'system.disk.smart.{a.num}_{a.name}.{dev.name}'
+                datapoint = {'metric': f'system.disk.smart.{a.num}_{a.name}'}
 
                 if 's' in a.raw:
                     parts = time_re.match(a.raw)
                     time_components = {name: float(param) for name, param in parts.groupdict().items() if param}
-                    value = timedelta(**time_components).total_seconds()
+                    datapoint['value'] = timedelta(**time_components).total_seconds()
                 else:
                     try:
-                        value = int(a.raw)
+                        datapoint['value'] = int(a.raw)
                     except ValueError:
                         logger.warning('cannot parse SMART raw value: %s', a.raw)
                         continue
 
-                statsd.gauge(key, value)
+                if use_datadog:
+                    datapoint['tags'] = ['device:'+dev.name]
+                else:
+                    datapoint['key'] += '.' + dev.name
+                statsd.gauge(**datapoint)
         sleep(interval)
 
 

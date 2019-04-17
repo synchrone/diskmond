@@ -9,8 +9,11 @@ setup(
     install_requires=[
         'Click==7.0',
         'pysmart.smartx==0.3.9',
-        'statsd==3.3.0'
     ],
+    extras_require={
+        'statsd':  ['statsd==3.3.0'],
+        'datadog': ['datadog==0.28.0'],
+    },
     entry_points='''
         [console_scripts]
         diskmond=diskmond.main:cli
