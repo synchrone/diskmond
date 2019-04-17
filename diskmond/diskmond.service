@@ -1,0 +1,14 @@
+[Unit]
+Description=monitors smart attributes using statsd protocol
+After=network.target
+
+[Service]
+EnvironmentFile=/etc/diskmond
+Environment=LC_ALL=C.UTF-8
+Environment=LANG=C.UTF-8
+ExecStart=/usr/local/bin/diskmond
+Type=simple
+User=root
+Group=root
+Restart=on-failure
+RestartSec=5
